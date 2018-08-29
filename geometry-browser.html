@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Three.js Geometry Browser</title>
+		<style>
+        *{padding: 0;margin: 0;}
+        html,body{width:100%;height: 100%}
+			@font-face {
+				font-family: 'inconsolata';
+				src: url('../files/inconsolata.woff') format('woff');
+				font-weight: normal;
+				font-style: normal;
+			}
+
+			body {
+				margin:0;
+				font-family: 'inconsolata';
+				font-size: 15px;
+				line-height: 18px;
+				overflow: hidden;
+			}
+            .hide{opacity: 0;}
+			canvas { width: 100%; height: 100% ;}
+            .linklable{text-align:center;width: 100px;opacity: 0.8;padding: 0 10px;line-height: 25px;transition: opacity .2s linear}
+            .linklable a{display: block;color:#000;text-decoration: none;}
+            #cube-contain{width: 100%;height: 100%}
+		</style>
+		<script src="./build/three.js" ></script>
+		<script src="./js/controls/OrbitControls.js"></script>
+		<script src="./js/ParametricGeometries.js"></script>
+
+	</head>
+	<body>
+    <div id="cube-contain"></div>
+		<script>
+
+        var contain = document.getElementById('cube-contain');
+
+            var objects = [];
+			var off = true;
+			var scene = new THREE.Scene();
+			var camera = new THREE.PerspectiveCamera( 75, contain.clientWidth / contain.clientHeight, 1, 50 );
+			camera.position.z = 20;
+
+			var renderer = new THREE.WebGLRenderer( { antialias: true, alpha: true } );
+			renderer.setPixelRatio( contain.devicePixelRatio );
+			renderer.setSize( contain.clientWidth, contain.clientHeight );
+			renderer.setClearColor( 0x000000, 1 );
+			contain.appendChild( renderer.domElement );
+
+
+			var lights = [];
+			lights[ 0 ] = new THREE.PointLight( 0xffffff, 1, 0 );
+			lights[ 1 ] = new THREE.PointLight( 0xffffff, 1, 0 );
+			lights[ 2 ] = new THREE.PointLight( 0xffffff, 1, 0 );
+
+			lights[ 0 ].position.set( 0, 50, 50 );
+			lights[ 1 ].position.set( 50, 200, 50 );
+			lights[ 2 ].position.set( - 50, - 200, - 50 );
+
+			scene.add( lights[ 0 ] );
+			scene.add( lights[ 1 ] );
+			scene.add( lights[ 2 ] );
+
+			var mesh = new THREE.Object3D();
+
+			mesh.add( new THREE.LineSegments(
+
+				new THREE.Geometry(),
+
+				new THREE.LineBasicMaterial( {
+					color: 0x00ffff,
+					transparent: true,
+                    linewidth: 5,
+					opacity: 1
+				} )
+
+			) );
+
+
+			mesh.add( new THREE.Mesh(
+
+				new THREE.Geometry(),
+
+				new THREE.MeshPhongMaterial( {
+					color: 0x000000,
+					emissive: 0x000000,
+					side: THREE.DoubleSide,
+					flatShading: true
+				} )
+
+			) );
+            // console.log( mesh.children[1] )
+
+			var options = chooseFromHash( mesh );
+
+			scene.add( mesh );
+
+			var loader = new THREE.TextureLoader();
+            var texture = loader.load( '../../examples/textures/sprites/disc.png' );
+
+            group = new THREE.Group();
+            scene.add( group );
+
+            var tagObject = new THREE.Object3D();
+	        scene.add(tagObject);
+            // points
+
+            var pointsGeometry = new THREE.IcosahedronGeometry( 10 );
+            // console.log(pointsGeometry.vertices)
+            // var pointPosition = pointsGeometry.vertices;
+
+
+	        var tags = [];
+
+            for ( var i = 0; i < pointsGeometry.vertices.length; i ++ ) {
+                //pointsGeometry.vertices[ i ].add( randomPoint().multiplyScalar( 2 ) ); // wiggle the points
+                var position = pointsGeometry.vertices[i];
+                addTag( position );
+            }
+
+            function addTag( position ){
+
+            	var tagMesh = new THREE.Mesh(new THREE.SphereGeometry(0.01), new THREE.MeshBasicMaterial({color: 0x000000 }));
+                tagMesh.position.copy( position );
+                objects.push(tagMesh);
+                tagObject.add(tagMesh);
+
+            	var tagElement = document.createElement("div");
+                tagElement.innerHTML = "<a href = 'javascript:;'> 链接" + (tags.length + 1) + "</a>";
+                tagElement.className = "linklable";
+                tagElement.style.background = "#fff";
+                tagElement.style.position  = "absolute";
+                tagElement.addEventListener("click", function(evt){
+                    alert(tagElement.innerText);
+                });
+
+                tagMesh.updateTag = function(){
+                    if(isOffScreen(tagMesh, camera)){
+                        tagElement.style.display = "none";
+                    }else{
+                        this.dsdsd = tagElement;
+                        tagMesh.updateMatrixWorld();
+                        var vector = tagMesh.geometry.vertices[i].clone();
+                        vector.applyMatrix4( tagMesh.matrixWorld );
+                        if( vector.z < 1 || (vector.z / 7)<0.4 ){
+                            this.dsdsd.style.opacity = "0";
+                            setTimeout(function(){
+                                this.dsdsd.style.display = "none";
+                            }.bind(this),500)
+                        }else{
+                            this.dsdsd.style.display = "block";
+                            setTimeout(function(){
+                                this.dsdsd.style.opacity = "1";
+                            }.bind(this),200)
+                        }
+                        var position = toScreenPosition(tagMesh, camera);
+                        this.dsdsd.style.left = position.x + "px";
+                        this.dsdsd.style.top = position.y + "px";
+                        this.dsdsd.style.transform = 'translateX(-50%) translateY(-50%) scale('+( vector.z / 7 )+')';
+
+                    }
+                }
+                tagMesh.updateTag();
+                contain.appendChild(tagElement);
+                tags.push(tagMesh);
+            }
+            function isOffScreen(obj, camera){
+	            var frustum = new THREE.Frustum(); //Frustum用来确定相机的可视区域
+	            var cameraViewProjectionMatrix = new THREE.Matrix4();
+	            cameraViewProjectionMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); //获取相机的法线
+	            frustum.setFromMatrix(cameraViewProjectionMatrix); //设置frustum沿着相机法线方向
+
+	            return !frustum.intersectsObject(obj);
+	        }
+	        function toScreenPosition(obj, camera){
+	            var vector = new THREE.Vector3();
+	            var widthHalf = 0.5 * renderer.context.canvas.width;
+	            var heightHalf = 0.5 * renderer.context.canvas.height;
+
+	            obj.updateMatrixWorld();
+	            vector.setFromMatrixPosition(obj.matrixWorld);
+	            vector.project(camera);
+
+	            vector.x = (vector.x * widthHalf) + widthHalf;
+	            vector.y = -(vector.y * heightHalf) + heightHalf;
+
+	            return {
+	                x: vector.x,
+	                y: vector.y
+	            };
+	        }
+
+
+            var pointsMaterial = new THREE.PointsMaterial( {
+
+                color: 0x0080ff,
+                // map: texture,
+                size: 0,
+                alphaTest: 0
+
+            } );
+
+            var points = new THREE.Points( pointsGeometry, pointsMaterial );
+            group.add( points );
+            // objects.push(points)
+
+			var prevFog = false;
+            mesh.rotation.x = group.rotation.x = tagObject.rotation.x = 1;;
+			var render = function () {
+
+				requestAnimationFrame( render );
+				if ( off ) {
+                    mesh.rotation.x = group.rotation.x = tagObject.rotation.x += 0.005;
+					mesh.rotation.y = group.rotation.y = tagObject.rotation.y += 0.005;
+
+					tags.forEach(function(tagMesh){
+		                tagMesh.updateTag();
+		            });
+				}else if( isUserInteracting && _isUserInteracting ){
+                    mesh.rotation.y = group.rotation.y = tagObject.rotation.y += lon*0.001;
+                    mesh.rotation.x = group.rotation.x = tagObject.rotation.x += lat*0.001;
+                    tags.forEach(function(tagMesh){
+                        tagMesh.updateTag();
+                    });
+                }
+                tags.forEach(function(tagMesh){
+                    tagMesh.updateTag();
+                });
+
+				renderer.render( scene, camera );
+
+			};
+
+window.addEventListener( 'resize', function () {
+
+	camera.aspect = contain.clientWidth / contain.clientHeight;
+	camera.updateProjectionMatrix();
+
+	renderer.setSize( contain.clientWidth, contain.clientHeight );
+
+}, false );
+
+contain.addEventListener( 'mouseenter', function(e){
+	off = false;
+}, false)
+contain.addEventListener( 'mouseleave', function(e){
+	off = true;
+}, false)
+
+render();
+
+function chooseFromHash ( mesh ) {
+
+    var selectedGeometry = 'IcosahedronGeometry';
+
+    var data = {
+            radius : 10,
+            detail : 0
+        };
+
+    function generateGeometry() {
+        var geometry = new THREE.IcosahedronGeometry(
+            data.radius, data.detail
+        )
+        mesh.children[ 0 ].geometry.dispose();
+        mesh.children[ 1 ].geometry.dispose();
+
+        mesh.children[ 0 ].geometry = new THREE.WireframeGeometry( geometry );
+        mesh.children[ 1 ].geometry = geometry;
+
+    }
+    generateGeometry();
+
+    return {};
+}
+
+
+contain.addEventListener( 'mousedown', onDocumentMouseDown, false );
+contain.addEventListener( 'mousemove', onDocumentMouseMove, false );
+contain.addEventListener( 'mouseup', onDocumentMouseUp, false );
+contain.addEventListener( 'mouseout', onDocumentMouseUp, false );
+var isUserInteracting = false, _isUserInteracting = true,
+onPointerDownPointerX = 0, onPointerDownPointerY = 0, lon = 0, lat = 0, onPointerDownLon = 0, onPointerDownLat = 0;
+function onDocumentMouseDown( event ){
+    event.preventDefault();
+    isUserInteracting = true;
+
+    onPointerDownPointerX = event.offsetX;
+    onPointerDownPointerY = event.offsetY;
+}
+var linklable = document.getElementsByClassName('linklable');
+for( var i = 0, _i = linklable.length; i < _i; i ++ ){
+    linklable[ i ].addEventListener('mouseenter', function(e){
+        _isUserInteracting = false;
+    }, true)
+    linklable[ i ].addEventListener('mouseout', function(e){
+        _isUserInteracting = true;
+    }, true)
+}
+function onDocumentMouseMove( event ) {
+
+    if ( isUserInteracting === true ) {
+
+        lon = -( event.offsetX - onPointerDownPointerX )*0.05;
+        lat = ( event.offsetY - onPointerDownPointerY )*0.05;
+
+        onPointerDownLon = lon;
+        onPointerDownLat = lat;
+
+    }
+
+}
+function onDocumentMouseUp( event ) {
+
+    isUserInteracting = false;
+
+}
+
+
+
+
+		</script>
+	</body>
+</html>
